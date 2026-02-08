@@ -1,0 +1,29 @@
+name: Notify Child Repo on Main Repo Push
+
+# This workflow runs in the MAIN repository
+# It triggers when code is pushed to the main repo
+# and notifies the child repo to update its submodule
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  notify-child-repo:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v3
+
+      - name: Trigger child repository workflow
+        run: |
+          curl -X POST \
+            https://api.github.com/repos/chakravarthy13/gihubworkflowChild/dispatches \
+            -H "Accept: application/vnd.github.everest-preview+json" \
+            -H "Authorization: token ${{ secrets.REPO_ACCESS_TOKEN }}" \
+            -d '{"event_type":"main-repo-updated"}'
+        env:
+          REPO_ACCESS_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
