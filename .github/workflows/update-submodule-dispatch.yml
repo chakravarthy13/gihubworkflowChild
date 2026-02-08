@@ -4,9 +4,7 @@ name: Update submodule when notified
 # sent from the Main repository. When received, this workflow updates the
 # local `gihubworkflowMain` submodule to the remote's latest commit, commits
 # the gitlink change in the Child repo, and pushes it back to the Child repo's
-# `main` branch.
-#
-# Adjust these values if your submodule path or branch differs.
+# `ChildBranch01` branch.
 
 on:
   repository_dispatch:
@@ -14,51 +12,50 @@ on:
 
 jobs:
   update:
-    # Runner that executes the update steps
     runs-on: ubuntu-latest
     steps:
-      # 1) Checkout the repository and initialize submodules so they are
-      #    available locally for the update operation.
+      # 1) Checkout the repository and initialize submodules
       - name: Checkout repository (with submodules)
         uses: actions/checkout@v4
         with:
-          # We only have a single-level submodule; use non-recursive init.
           submodules: true
-          fetch-depth: 0            # fetch full history for commits/refs
+          fetch-depth: 0
 
-      # 2) Update step: configure git identity, pull submodule remote HEAD,
-      #    stage the updated gitlink, and push if there are changes.
+      # 2) Update submodule pointer and push changes
       - name: Update submodule
         run: |
-          # Set a clear committer identity for automated commits.
+          # Configure committer identity
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-           # DEBUG: show current parent and submodule state.
-           echo "Parent HEAD: $(git rev-parse --short HEAD)"
-           echo "Submodule recorded SHA:"
-           git submodule status -- gihubworkflowMain || true
+          echo "Parent HEAD: $(git rev-parse --short HEAD)"
+          echo "Submodule recorded SHA:"
+          git submodule status -- gihubworkflowMain || true
 
-           # Fetch the latest refs in the submodule and show remote heads.
-           git -C gihubworkflowMain fetch origin --quiet || true
-           echo "Remote refs for submodule:"
-           git -C gihubworkflowMain ls-remote origin | sed -n '1,5p'
+          # Fetch latest refs in the submodule
+          git -C gihubworkflowMain fetch origin --quiet || true
+          echo "Remote refs for submodule:"
+          git -C gihubworkflowMain ls-remote origin | sed -n '1,5p'
 
-           # Checkout the remote main branch in the submodule (detached HEAD
-           # at the remote tip). This ensures the parent will record the exact
-           # commit currently at origin/main.
-           git -C gihubworkflowMain checkout origin/main || true
-           echo "Submodule new HEAD: $(git -C gihubworkflowMain rev-parse --short HEAD)"
+          # Checkout remote main branch in the submodule
+          git -C gihubworkflowMain checkout origin/main || true
+          echo "Submodule new HEAD: $(git -C gihubworkflowMain rev-parse --short HEAD)"
 
-           # Stage the submodule gitlink change in the parent repo.
-           git add gihubworkflowMain
+          # Stage the submodule gitlink change
+          git add gihubworkflowMain
 
-           # If there are no staged changes, exit cleanly.
-           if git diff --cached --quiet; then
-             echo "No update needed"
-             exit 0
-           fi
+          # If no staged changes, exit cleanly
+          if git diff --cached --quiet; then
+            echo "No update needed"
+            exit 0
+          fi
 
-           # Commit the updated submodule pointer and push back to the Child repo.
-           git commit -m "Update submodule to latest"
-           git push origin HEAD:main
+          # Commit and push the updated submodule pointer
+          git commit -m "Update submodule to latest"
+          git push origin HEAD:ChildBranch01
+
+      # 3) Debug info after push
+      - name: Debug info
+        run: |
+          git status
+          git log --oneline -n 3
