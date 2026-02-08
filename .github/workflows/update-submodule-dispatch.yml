@@ -34,20 +34,31 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Update the named submodule to the latest commit on its tracked ref.
-          # Replace `gihubworkflowMain` with your submodule path if different.
-          git submodule update --init --remote gihubworkflowMain
+           # DEBUG: show current parent and submodule state.
+           echo "Parent HEAD: $(git rev-parse --short HEAD)"
+           echo "Submodule recorded SHA:"
+           git submodule status -- gihubworkflowMain || true
 
-          # Stage the submodule gitlink change (the parent repo records the
-          # submodule commit SHA in the git index; adding the folder updates it)
-          git add gihubworkflowMain
+           # Fetch the latest refs in the submodule and show remote heads.
+           git -C gihubworkflowMain fetch origin --quiet || true
+           echo "Remote refs for submodule:"
+           git -C gihubworkflowMain ls-remote origin | sed -n '1,5p'
 
-          # If there are no staged changes, exit early and report nothing to do.
-          if git diff --cached --quiet; then
-            echo "No update needed"
-            exit 0
-          fi
+           # Checkout the remote main branch in the submodule (detached HEAD
+           # at the remote tip). This ensures the parent will record the exact
+           # commit currently at origin/main.
+           git -C gihubworkflowMain checkout origin/main || true
+           echo "Submodule new HEAD: $(git -C gihubworkflowMain rev-parse --short HEAD)"
 
-          # Commit the updated submodule pointer and push back to the Child repo.
-          git commit -m "Update submodule to latest"
-          git push origin HEAD:main
+           # Stage the submodule gitlink change in the parent repo.
+           git add gihubworkflowMain
+
+           # If there are no staged changes, exit cleanly.
+           if git diff --cached --quiet; then
+             echo "No update needed"
+             exit 0
+           fi
+
+           # Commit the updated submodule pointer and push back to the Child repo.
+           git commit -m "Update submodule to latest"
+           git push origin HEAD:main
